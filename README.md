@@ -1,98 +1,92 @@
 # CustomLogValidator
 
-CustomLogValidator is a lightweight, purely TypeScript-based CLI tool designed to parse two lists of test names (main logs and report logs) and check whether each test name appears inside four separate log files: **base**, **before**, **after**, and **post_agent_patch**.
+CustomLogValidator is a lightweight, purely TypeScript-based CLI tool that parses two lists of test names and checks whether each test appears inside four separate log files: **base**, **before**, **after**, and **post_agent_patch**.
+
+---
 
 ## Features
 
-* **Accurate Parsing:** Handles empty lines and trailing spaces in test inputs seamlessly.
-
-* **Fast Execution:** Reads raw text files and utilizes fast substring matching.
-
-* **Strictly Typed:** Built entirely in TypeScript for maintainability.
-
-* **Dockerized:** Ready to be built and run in isolated containers.
-
-* **Tested:** High coverage using Jest.
+| | Feature | Description |
+|---|---|---|
+| ✅ | **Accurate Parsing** | Handles empty lines and trailing spaces seamlessly |
+| ⚡ | **Fast Execution** | Raw text reads with fast substring matching |
+| 🔷 | **Strictly Typed** | Built entirely in TypeScript |
+| 🐳 | **Dockerized** | Ready to run in isolated containers |
+| 🧪 | **Tested** | High coverage using Jest |
 
 ---
 
-## 🛠️ Prerequisites
+## Prerequisites
 
-* **Node.js** (v18 or higher recommended)
-
-* **npm** (comes with Node.js)
-
-* **Docker** (optional, for containerized execution)
+- **Node.js** v18 or higher
+- **npm** (bundled with Node.js)
+- **Docker** *(optional — for containerized execution)*
 
 ---
 
-## 🚀 Setup & Installation
+## Setup & Installation
 
-1. **Clone the repository** (if hosted on GitHub):
+**1. Clone the repository:**
 
-\\\\`bash
-
+```bash
 git clone https://github.com/yourusername/CustomLogValidator.git
-
 cd CustomLogValidator
+```
 
-\\\\`
+**2. Install dependencies:**
 
-2. **Install dependencies**:
-
-\\\\`bash
-
+```bash
 npm install
-
-\\\\`
+```
 
 ---
 
-## 💻 Usage (Local Node.js)
+## Usage
 
-1. **Build the TypeScript files**:
+### Step 1 — Build
 
-\\\\`bash
-
+```bash
 npm run build
+```
 
-\\\\`
+This compiles TypeScript into the `dist/` directory.
 
-*This compiles the code into the dist/ directory.*
+### Step 2 — Run
 
-2. **Run the validator**:
-
-Use **named flags** to pass six input files (order does not matter):
+Pass six named flags (order does not matter):
 
 | Flag | Description |
 |---|---|
-| `--main_tests` | Text file with main-log test names (one per line) |
-| `--report_tests` | Text file with report-log test names (one per line) |
+| `--main_tests` | Text file listing main-log test names (one per line) |
+| `--report_tests` | Text file listing report-log test names (one per line) |
 | `--base` | The **base** log file |
 | `--before` | The **before** log file |
 | `--after` | The **after** log file |
 | `--post_agent_patch` | The **post_agent_patch** log file |
 
-Every test name from both lists is checked against all four log files independently.
+**Primary command:**
 
-\\\\`bash
+```bash
+npm start -- --main_tests path/to/main_tests.txt --report_tests path/to/report_tests.txt --base path/to/base.log --before path/to/before.log --after path/to/after.log --post_agent_patch path/to/post_agent_patch.log
+```
 
-npm start -- \\
-  --main_tests path/to/main_tests.txt \\
-  --report_tests path/to/report_tests.txt \\
-  --base path/to/base.log \\
-  --before path/to/before.log \\
-  --after path/to/after.log \\
-  --post_agent_patch path/to/post_agent_patch.log
+> **If the above does not work** (e.g. on PowerShell where `--` may be intercepted by the shell), call Node directly:
 
-\\\\`
+```bash
+node dist/index.js --main_tests path/to/main_tests.txt --report_tests path/to/report_tests.txt --base path/to/base.log --before path/to/before.log --after path/to/after.log --post_agent_patch path/to/post_agent_patch.log
+```
 
-**Graceful missing-file handling:** If any input file does not exist on disk, the tool prints a warning and continues. A missing log file shows `⚠️  FILE MISSING` in that column across every row. A missing test-list file simply skips that group.
+---
 
-**Example Output** (with `--before` pointing to a missing file):
+## Output
 
-\\\\`
+Every test name from both lists is checked against all four log files independently. Each row is tagged with a **Source** column (`main` or `report`) so you can tell which test list it came from.
 
+**Graceful missing-file handling:** If a log file is missing, the tool prints a warning and continues — that column shows `⚠️ FILE MISSING` for every row.
+
+**Example output** (with `--before` pointing to a missing file):
+
+```
 ⚠️  MISSING FILES
   --before  →  path/to/before.log
 
@@ -119,59 +113,43 @@ npm start -- \\
 ║        │ Not Found      │  0   │   0    │   0   │        0         ║
 ║        │ File Missing   │  0   │   1    │   0   │        0         ║
 ╚════════╧════════════════╧══════╧════════╧═══════╧══════════════════╝
-
-\\\\`
-
-Each row is tagged with a **Source** column (`main` or `report`) so you can tell which test list the entry came from. The summary panel breaks down found / not-found / file-missing counts per log file, split by source.
+```
 
 ---
 
-## 🧪 Running Tests
+## Running Tests
 
-This project uses **Jest** for unit testing.
-
-To execute the test suite, run:
-
-\\\\`bash
-
+```bash
 npm test
-
-\\\\`
+```
 
 ---
 
-## 🐳 Dockerization
+## Dockerization
 
-You can run this tool entirely within Docker without needing Node.js installed on your host machine.
+Run the tool entirely within Docker — no local Node.js required.
 
-### 1. Build the Docker Image
+### 1. Build the image
 
-From the root of the project, run:
-
-\\\\`bash
-
+```bash
 docker build -t custom-log-validator .
+```
 
-\\\\`
+### 2. Run the container
 
-### 2. Run the Docker Container
+Mount a volume so the container can access your local files:
 
-Because the tool needs to read files from your local machine, you must mount a volume (-v) so the container can access them.
-
-Assume you have the six input files in your current directory $(pwd):
-
-\\\\`bash
-
-docker run --rm -v $(pwd):/data custom-log-validator \\
-  --main_tests /data/main_tests.txt \\
-  --report_tests /data/report_tests.txt \\
-  --base /data/base.log \\
-  --before /data/before.log \\
-  --after /data/after.log \\
+```bash
+docker run --rm -v $(pwd):/data custom-log-validator \
+  --main_tests /data/main_tests.txt \
+  --report_tests /data/report_tests.txt \
+  --base /data/base.log \
+  --before /data/before.log \
+  --after /data/after.log \
   --post_agent_patch /data/post_agent_patch.log
+```
 
-\\\\`
-
-* --rm: Removes the container after it finishes running.
-
-* -v $(pwd):/data: Maps your current directory to /data inside the container.
+| Flag | Description |
+|---|---|
+| `--rm` | Removes the container after it finishes |
+| `-v $(pwd):/data` | Maps your current directory to `/data` inside the container |
