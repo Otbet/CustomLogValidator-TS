@@ -1,6 +1,6 @@
 # CustomLogValidator
 
-CustomLogValidator is a lightweight, purely TypeScript-based CLI tool designed to parse a multiline list of test names and check their existence within a provided log file.
+CustomLogValidator is a lightweight, purely TypeScript-based CLI tool designed to parse two lists of test names (main logs and report logs) and check whether each test name appears inside four separate log files: **base**, **before**, **after**, and **post_agent_patch**.
 
 ## Features
 
@@ -62,30 +62,67 @@ npm run build
 
 2. **Run the validator**:
 
-Provide two .txt or .log files as arguments. The first file should contain your list of tests (one per line). The second file should be your application logs.
+Use **named flags** to pass six input files (order does not matter):
 
+| Flag | Description |
+|---|---|
+| `--main_tests` | Text file with main-log test names (one per line) |
+| `--report_tests` | Text file with report-log test names (one per line) |
+| `--base` | The **base** log file |
+| `--before` | The **before** log file |
+| `--after` | The **after** log file |
+| `--post_agent_patch` | The **post_agent_patch** log file |
+
+Every test name from both lists is checked against all four log files independently.
 
 \\\\`bash
 
-npm start path/to/tests.txt path/to/logs.txt
+npm start -- \\
+  --main_tests path/to/main_tests.txt \\
+  --report_tests path/to/report_tests.txt \\
+  --base path/to/base.log \\
+  --before path/to/before.log \\
+  --after path/to/after.log \\
+  --post_agent_patch path/to/post_agent_patch.log
 
 \\\\`
 
-**Example Output**:
+**Graceful missing-file handling:** If any input file does not exist on disk, the tool prints a warning and continues. A missing log file shows `⚠️  FILE MISSING` in that column across every row. A missing test-list file simply skips that group.
+
+**Example Output** (with `--before` pointing to a missing file):
 
 \\\\`
 
---- Validation Results ---
+⚠️  MISSING FILES
+  --before  →  path/to/before.log
 
-✅ test_login: OK
+                       CUSTOM LOG VALIDATOR RESULTS
+╔════════════════════════════╤════════╤══════════╤════════════════╤══════════╤══════════════════╗
+║ Test Name                  │ Source │ Base     │ Before         │ After    │ Post Agent Patch ║
+╟────────────────────────────┼────────┼──────────┼────────────────┼──────────┼──────────────────╢
+║ test_login                 │ main   │ ✅ OK    │ ⚠️  FILE MISSING│ ❌ NOT OK│ ✅ OK            ║
+╟────────────────────────────┼────────┼──────────┼────────────────┼──────────┼──────────────────╢
+║ test_checkout              │ main   │ ❌ NOT OK│ ⚠️  FILE MISSING│ ✅ OK    │ ✅ OK            ║
+╟────────────────────────────┼────────┼──────────┼────────────────┼──────────┼──────────────────╢
+║ report_summary_test        │ report │ ✅ OK    │ ⚠️  FILE MISSING│ ✅ OK    │ ✅ OK            ║
+╚════════════════════════════╧════════╧══════════╧════════════════╧══════════╧══════════════════╝
 
-❌ test_checkout: NOT OK
-
-✅ test_database_connection: OK
-
---------------------------
+                                SUMMARY
+╔════════╤════════════════╤══════╤════════╤═══════╤══════════════════╗
+║ Source │ Status         │ Base │ Before │ After │ Post Agent Patch ║
+╟────────┼────────────────┼──────┼────────┼───────┼──────────────────╢
+║ main   │ Found          │  1   │   0    │   1   │        2         ║
+║        │ Not Found      │  1   │   0    │   1   │        0         ║
+║        │ File Missing   │  0   │   2    │   0   │        0         ║
+╟────────┼────────────────┼──────┼────────┼───────┼──────────────────╢
+║ report │ Found          │  1   │   0    │   1   │        1         ║
+║        │ Not Found      │  0   │   0    │   0   │        0         ║
+║        │ File Missing   │  0   │   1    │   0   │        0         ║
+╚════════╧════════════════╧══════╧════════╧═══════╧══════════════════╝
 
 \\\\`
+
+Each row is tagged with a **Source** column (`main` or `report`) so you can tell which test list the entry came from. The summary panel breaks down found / not-found / file-missing counts per log file, split by source.
 
 ---
 
@@ -121,11 +158,17 @@ docker build -t custom-log-validator .
 
 Because the tool needs to read files from your local machine, you must mount a volume (-v) so the container can access them.
 
-Assume you have tests.txt and logs.txt in your current directory $(pwd):
+Assume you have the six input files in your current directory $(pwd):
 
 \\\\`bash
 
-docker run --rm -v $(pwd):/data custom-log-validator /data/tests.txt /data/logs.txt
+docker run --rm -v $(pwd):/data custom-log-validator \\
+  --main_tests /data/main_tests.txt \\
+  --report_tests /data/report_tests.txt \\
+  --base /data/base.log \\
+  --before /data/before.log \\
+  --after /data/after.log \\
+  --post_agent_patch /data/post_agent_patch.log
 
 \\\\`
 
