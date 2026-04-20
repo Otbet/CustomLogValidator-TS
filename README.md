@@ -1,134 +1,155 @@
 # CustomLogValidator
 
-CustomLogValidator is a lightweight, purely TypeScript-based CLI tool designed to parse a multiline list of test names and check their existence within a provided log file.
+CustomLogValidator is a lightweight, purely TypeScript-based CLI tool that parses two lists of test names and checks whether each test appears inside four separate log files: **base**, **before**, **after**, and **post_agent_patch**.
+
+---
 
 ## Features
 
-* **Accurate Parsing:** Handles empty lines and trailing spaces in test inputs seamlessly.
-
-* **Fast Execution:** Reads raw text files and utilizes fast substring matching.
-
-* **Strictly Typed:** Built entirely in TypeScript for maintainability.
-
-* **Dockerized:** Ready to be built and run in isolated containers.
-
-* **Tested:** High coverage using Jest.
+| | Feature | Description |
+|---|---|---|
+| ✅ | **Accurate Parsing** | Handles empty lines and trailing spaces seamlessly |
+| ⚡ | **Fast Execution** | Raw text reads with fast substring matching |
+| 🔷 | **Strictly Typed** | Built entirely in TypeScript |
+| 🐳 | **Dockerized** | Ready to run in isolated containers |
+| 🧪 | **Tested** | High coverage using Jest |
 
 ---
 
-## 🛠️ Prerequisites
+## Prerequisites
 
-* **Node.js** (v18 or higher recommended)
-
-* **npm** (comes with Node.js)
-
-* **Docker** (optional, for containerized execution)
+- **Node.js** v18 or higher
+- **npm** (bundled with Node.js)
+- **Docker** *(optional — for containerized execution)*
 
 ---
 
-## 🚀 Setup & Installation
+## Setup & Installation
 
-1. **Clone the repository** (if hosted on GitHub):
+**1. Clone the repository:**
 
-\\\\`bash
-
+```bash
 git clone https://github.com/yourusername/CustomLogValidator.git
-
 cd CustomLogValidator
+```
 
-\\\\`
+**2. Install dependencies:**
 
-2. **Install dependencies**:
-
-\\\\`bash
-
+```bash
 npm install
-
-\\\\`
+```
 
 ---
 
-## 💻 Usage (Local Node.js)
+## Usage
 
-1. **Build the TypeScript files**:
+### Step 1 — Build
 
-\\\\`bash
-
+```bash
 npm run build
+```
 
-\\\\`
+This compiles TypeScript into the `dist/` directory.
 
-*This compiles the code into the dist/ directory.*
+### Step 2 — Run
 
-2. **Run the validator**:
+Pass six named flags (order does not matter):
 
-Provide two .txt or .log files as arguments. The first file should contain your list of tests (one per line). The second file should be your application logs.
+| Flag | Description |
+|---|---|
+| `--main_tests` | Text file listing main-log test names (one per line) |
+| `--report_tests` | Text file listing report-log test names (one per line) |
+| `--base` | The **base** log file |
+| `--before` | The **before** log file |
+| `--after` | The **after** log file |
+| `--post_agent_patch` | The **post_agent_patch** log file |
 
+**Primary command:**
 
-\\\\`bash
+```bash
+npm start -- --main_tests path/to/main_tests.txt --report_tests path/to/report_tests.txt --base path/to/base.log --before path/to/before.log --after path/to/after.log --post_agent_patch path/to/post_agent_patch.log
+```
 
-npm start path/to/tests.txt path/to/logs.txt
+> **If the above does not work** (e.g. on PowerShell where `--` may be intercepted by the shell), call Node directly:
 
-\\\\`
-
-**Example Output**:
-
-\\\\`
-
---- Validation Results ---
-
-✅ test_login: OK
-
-❌ test_checkout: NOT OK
-
-✅ test_database_connection: OK
-
---------------------------
-
-\\\\`
+```bash
+node dist/index.js --main_tests path/to/main_tests.txt --report_tests path/to/report_tests.txt --base path/to/base.log --before path/to/before.log --after path/to/after.log --post_agent_patch path/to/post_agent_patch.log
+```
 
 ---
 
-## 🧪 Running Tests
+## Output
 
-This project uses **Jest** for unit testing.
+Every test name from both lists is checked against all four log files independently. Each row is tagged with a **Source** column (`main` or `report`) so you can tell which test list it came from.
 
-To execute the test suite, run:
+**Graceful missing-file handling:** If a log file is missing, the tool prints a warning and continues — that column shows `⚠️ FILE MISSING` for every row.
 
-\\\\`bash
+**Example output** (with `--before` pointing to a missing file):
 
+```
+⚠️  MISSING FILES
+  --before  →  path/to/before.log
+
+                       CUSTOM LOG VALIDATOR RESULTS
+╔════════════════════════════╤════════╤══════════╤════════════════╤══════════╤══════════════════╗
+║ Test Name                  │ Source │ Base     │ Before         │ After    │ Post Agent Patch ║
+╟────────────────────────────┼────────┼──────────┼────────────────┼──────────┼──────────────────╢
+║ test_login                 │ main   │ ✅ OK    │ ⚠️  FILE MISSING│ ❌ NOT OK│ ✅ OK            ║
+╟────────────────────────────┼────────┼──────────┼────────────────┼──────────┼──────────────────╢
+║ test_checkout              │ main   │ ❌ NOT OK│ ⚠️  FILE MISSING│ ✅ OK    │ ✅ OK            ║
+╟────────────────────────────┼────────┼──────────┼────────────────┼──────────┼──────────────────╢
+║ report_summary_test        │ report │ ✅ OK    │ ⚠️  FILE MISSING│ ✅ OK    │ ✅ OK            ║
+╚════════════════════════════╧════════╧══════════╧════════════════╧══════════╧══════════════════╝
+
+                                SUMMARY
+╔════════╤════════════════╤══════╤════════╤═══════╤══════════════════╗
+║ Source │ Status         │ Base │ Before │ After │ Post Agent Patch ║
+╟────────┼────────────────┼──────┼────────┼───────┼──────────────────╢
+║ main   │ Found          │  1   │   0    │   1   │        2         ║
+║        │ Not Found      │  1   │   0    │   1   │        0         ║
+║        │ File Missing   │  0   │   2    │   0   │        0         ║
+╟────────┼────────────────┼──────┼────────┼───────┼──────────────────╢
+║ report │ Found          │  1   │   0    │   1   │        1         ║
+║        │ Not Found      │  0   │   0    │   0   │        0         ║
+║        │ File Missing   │  0   │   1    │   0   │        0         ║
+╚════════╧════════════════╧══════╧════════╧═══════╧══════════════════╝
+```
+
+---
+
+## Running Tests
+
+```bash
 npm test
-
-\\\\`
+```
 
 ---
 
-## 🐳 Dockerization
+## Dockerization
 
-You can run this tool entirely within Docker without needing Node.js installed on your host machine.
+Run the tool entirely within Docker — no local Node.js required.
 
-### 1. Build the Docker Image
+### 1. Build the image
 
-From the root of the project, run:
-
-\\\\`bash
-
+```bash
 docker build -t custom-log-validator .
+```
 
-\\\\`
+### 2. Run the container
 
-### 2. Run the Docker Container
+Mount a volume so the container can access your local files:
 
-Because the tool needs to read files from your local machine, you must mount a volume (-v) so the container can access them.
+```bash
+docker run --rm -v $(pwd):/data custom-log-validator \
+  --main_tests /data/main_tests.txt \
+  --report_tests /data/report_tests.txt \
+  --base /data/base.log \
+  --before /data/before.log \
+  --after /data/after.log \
+  --post_agent_patch /data/post_agent_patch.log
+```
 
-Assume you have tests.txt and logs.txt in your current directory $(pwd):
-
-\\\\`bash
-
-docker run --rm -v $(pwd):/data custom-log-validator /data/tests.txt /data/logs.txt
-
-\\\\`
-
-* --rm: Removes the container after it finishes running.
-
-* -v $(pwd):/data: Maps your current directory to /data inside the container.
+| Flag | Description |
+|---|---|
+| `--rm` | Removes the container after it finishes |
+| `-v $(pwd):/data` | Maps your current directory to `/data` inside the container |
