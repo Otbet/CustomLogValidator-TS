@@ -1,6 +1,8 @@
 # CustomLogValidator
 
-CustomLogValidator is a lightweight, purely TypeScript-based CLI tool that parses two lists of test names and checks whether each test appears inside four separate log files: **base**, **before**, **after**, and **post_agent_patch**.
+CustomLogValidator is a lightweight, purely TypeScript-based CLI tool that validates test names against log files using intelligent Log Analysis Mapping:
+- **main_tests** are checked against: **base**, **before**, and **after** logs
+- **report_tests** are checked against: **post_agent_patch** log only
 
 ---
 
@@ -8,7 +10,8 @@ CustomLogValidator is a lightweight, purely TypeScript-based CLI tool that parse
 
 | | Feature | Description |
 |---|---|---|
-| ✅ | **Accurate Parsing** | Handles empty lines and trailing spaces seamlessly |
+| 🎯 | **Intelligent Log Mapping** | Tests are validated against only their relevant log files based on source |
+| ✅ | **Accurate Parsing** | Handles empty lines, trailing spaces, and JSON array formats seamlessly |
 | ⚡ | **Fast Execution** | Raw text reads with fast substring matching |
 | 🔷 | **Strictly Typed** | Built entirely in TypeScript |
 | 🐳 | **Dockerized** | Ready to run in isolated containers |
@@ -78,40 +81,58 @@ node dist/index.js --main_tests path/to/main_tests.txt --report_tests path/to/re
 
 ---
 
+## Log Analysis Mapping
+
+CustomLogValidator implements **intelligent test validation** by only checking tests against their relevant log files:
+
+| Test Source | Validated Against | Not Checked |
+|---|---|---|
+| **main_tests** | `base`, `before`, `after` | `post_agent_patch` (marked as N/A) |
+| **report_tests** | `post_agent_patch` only | `base`, `before`, `after` (marked as N/A) |
+
+Tests marked as **N/A** (not applicable) indicate that log file is not part of that test type's validation scope. This ensures that:
+- Main tests are only validated against the main development/testing logs
+- Report tests are only validated after the agent patch has been applied
+
+---
+
 ## Output
 
-Every test name from both lists is checked against all four log files independently. Each row is tagged with a **Source** column (`main` or `report`) so you can tell which test list it came from.
+Every test name from both lists is validated according to the Log Analysis Mapping. Each row is tagged with a **Source** column (`main` or `report`) so you can tell which test list it came from.
 
-**Graceful missing-file handling:** If a log file is missing, the tool prints a warning and continues — that column shows `⚠️ FILE MISSING` for every row.
+**Status indicators:**
+- `✅ OK` — Test found in the log file
+- `❌ NOT OK` — Test not found in the log file
+- `⚠️ FILE MISSING` — Log file could not be read
+- `⊘ N/A` — Log file not applicable to this test source
 
-**Example output** (with `--before` pointing to a missing file):
+**Graceful missing-file handling:** If a log file is missing, the tool prints a warning and continues — that column shows `⚠️ FILE MISSING` for every applicable test.
+
+**Example output** (with main_tests and report_tests validated according to mapping):
 
 ```
-⚠️  MISSING FILES
-  --before  →  path/to/before.log
+✔ Validation Complete!
 
                        CUSTOM LOG VALIDATOR RESULTS
-╔════════════════════════════╤════════╤══════════╤════════════════╤══════════╤══════════════════╗
-║ Test Name                  │ Source │ Base     │ Before         │ After    │ Post Agent Patch ║
-╟────────────────────────────┼────────┼──────────┼────────────────┼──────────┼──────────────────╢
-║ test_login                 │ main   │ ✅ OK    │ ⚠️  FILE MISSING│ ❌ NOT OK│ ✅ OK            ║
-╟────────────────────────────┼────────┼──────────┼────────────────┼──────────┼──────────────────╢
-║ test_checkout              │ main   │ ❌ NOT OK│ ⚠️  FILE MISSING│ ✅ OK    │ ✅ OK            ║
-╟────────────────────────────┼────────┼──────────┼────────────────┼──────────┼──────────────────╢
-║ report_summary_test        │ report │ ✅ OK    │ ⚠️  FILE MISSING│ ✅ OK    │ ✅ OK            ║
-╚════════════════════════════╧════════╧══════════╧════════════════╧══════════╧══════════════════╝
+╔════════════════════════════╤════════╤══════════╤════════╤═══════╤══════════════════╗
+║ Test Name                  │ Source │ Base     │ Before │ After │ Post Agent Patch ║
+╟────────────────────────────┼────────┼──────────┼────────┼───────┼──────────────────╢
+║ test_login                 │ main   │ ✅ OK    │ ✅ OK  │ ❌ NOT│ ⊘ N/A            ║
+╟────────────────────────────┼────────┼──────────┼────────┼───────┼──────────────────╢
+║ test_checkout              │ main   │ ❌ NOT OK│ ✅ OK  │ ✅ OK │ ⊘ N/A            ║
+╟────────────────────────────┼────────┼──────────┼────────┼───────┼──────────────────╢
+║ report_summary_test        │ report │ ⊘ N/A    │ ⊘ N/A  │ ⊘ N/A │ ✅ OK            ║
+╚════════════════════════════╧════════╧══════════╧════════╧═══════╧══════════════════╝
 
                                 SUMMARY
 ╔════════╤════════════════╤══════╤════════╤═══════╤══════════════════╗
 ║ Source │ Status         │ Base │ Before │ After │ Post Agent Patch ║
 ╟────────┼────────────────┼──────┼────────┼───────┼──────────────────╢
-║ main   │ Found          │  1   │   0    │   1   │        2         ║
-║        │ Not Found      │  1   │   0    │   1   │        0         ║
-║        │ File Missing   │  0   │   2    │   0   │        0         ║
+║ main   │ Found          │  1   │   1    │   1   │       N/A        ║
+║        │ Not Found      │  1   │   1    │   1   │       N/A        ║
 ╟────────┼────────────────┼──────┼────────┼───────┼──────────────────╢
-║ report │ Found          │  1   │   0    │   1   │        1         ║
-║        │ Not Found      │  0   │   0    │   0   │        0         ║
-║        │ File Missing   │  0   │   1    │   0   │        0         ║
+║ report │ Found          │ N/A  │  N/A   │  N/A  │        1         ║
+║        │ Not Found      │ N/A  │  N/A   │  N/A  │        0         ║
 ╚════════╧════════════════╧══════╧════════╧═══════╧══════════════════╝
 ```
 
