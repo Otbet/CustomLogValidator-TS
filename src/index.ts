@@ -47,6 +47,7 @@ function tryReadFile(filePath: string): string | null {
 function statusCell(status: Status): string {
     if (status === 'OK') return chalk.green('✅ OK');
     if (status === 'NOT OK') return chalk.red('❌ NOT OK');
+    if (status === 'N/A') return chalk.gray('⊘ N/A');
     return chalk.yellow('⚠️  FILE MISSING');
 }
 
@@ -150,9 +151,9 @@ async function main() {
 
         console.log(table.toString());
 
-        // 7. Compute per-source, per-log-file counts
+        // 7. Compute per-source, per-log-file counts (excluding N/A)
         const sources: TestSource[] = ['main', 'report'];
-        const zeroCounts = (): Record<Status, number> => ({ 'OK': 0, 'NOT OK': 0, 'FILE MISSING': 0 });
+        const zeroCounts = (): Record<Status, number> => ({ 'OK': 0, 'NOT OK': 0, 'FILE MISSING': 0, 'N/A': 0 });
         const counts: Record<TestSource, Record<LogKey, Record<Status, number>>> = {
             main:   { base: zeroCounts(), before: zeroCounts(), after: zeroCounts(), postAgentPatch: zeroCounts() },
             report: { base: zeroCounts(), before: zeroCounts(), after: zeroCounts(), postAgentPatch: zeroCounts() }
@@ -188,22 +189,62 @@ async function main() {
         for (const src of sources) {
             const label = src === 'main' ? chalk.blue.bold('main') : chalk.magenta.bold('report');
 
-            summaryTable.push([
-                label,
-                chalk.green('Found'),
-                ...LOG_KEYS.map(k => chalk.green(String(counts[src][k]['OK'])))
-            ]);
-            summaryTable.push([
-                '',
-                chalk.red('Not Found'),
-                ...LOG_KEYS.map(k => chalk.red(String(counts[src][k]['NOT OK'])))
-            ]);
-            if (hasFileMissing) {
+            if (src === 'main') {
+                // main_tests: show base, before, after; N/A for post_agent_patch
+                summaryTable.push([
+                    label,
+                    chalk.green('Found'),
+                    chalk.green(String(counts[src]['base']['OK'])),
+                    chalk.green(String(counts[src]['before']['OK'])),
+                    chalk.green(String(counts[src]['after']['OK'])),
+                    chalk.gray('N/A')
+                ]);
                 summaryTable.push([
                     '',
-                    chalk.yellow('File Missing'),
-                    ...LOG_KEYS.map(k => chalk.yellow(String(counts[src][k]['FILE MISSING'])))
+                    chalk.red('Not Found'),
+                    chalk.red(String(counts[src]['base']['NOT OK'])),
+                    chalk.red(String(counts[src]['before']['NOT OK'])),
+                    chalk.red(String(counts[src]['after']['NOT OK'])),
+                    chalk.gray('N/A')
                 ]);
+                if (counts.main['base']['FILE MISSING'] > 0 || counts.main['before']['FILE MISSING'] > 0 || counts.main['after']['FILE MISSING'] > 0) {
+                    summaryTable.push([
+                        '',
+                        chalk.yellow('File Missing'),
+                        chalk.yellow(String(counts[src]['base']['FILE MISSING'])),
+                        chalk.yellow(String(counts[src]['before']['FILE MISSING'])),
+                        chalk.yellow(String(counts[src]['after']['FILE MISSING'])),
+                        chalk.gray('N/A')
+                    ]);
+                }
+            } else {
+                // report_tests: N/A for base, before, after; show post_agent_patch
+                summaryTable.push([
+                    label,
+                    chalk.green('Found'),
+                    chalk.gray('N/A'),
+                    chalk.gray('N/A'),
+                    chalk.gray('N/A'),
+                    chalk.green(String(counts[src]['postAgentPatch']['OK']))
+                ]);
+                summaryTable.push([
+                    '',
+                    chalk.red('Not Found'),
+                    chalk.gray('N/A'),
+                    chalk.gray('N/A'),
+                    chalk.gray('N/A'),
+                    chalk.red(String(counts[src]['postAgentPatch']['NOT OK']))
+                ]);
+                if (counts.report['postAgentPatch']['FILE MISSING'] > 0) {
+                    summaryTable.push([
+                        '',
+                        chalk.yellow('File Missing'),
+                        chalk.gray('N/A'),
+                        chalk.gray('N/A'),
+                        chalk.gray('N/A'),
+                        chalk.yellow(String(counts[src]['postAgentPatch']['FILE MISSING']))
+                    ]);
+                }
             }
         }
 
